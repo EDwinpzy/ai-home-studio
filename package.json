@@ -19,7 +19,9 @@
     "postprocessing": "^6.39.5",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "three": "0.186.1"
+    "three": "0.186.1",
+    "three-gpu-pathtracer": "^0.0.24",
+    "xatlas-web": "^0.1.0"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",

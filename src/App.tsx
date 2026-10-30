@@ -22,13 +22,14 @@ import {
   Redo2,
   Rotate3D,
   SlidersHorizontal,
+  Sparkles,
   Sun,
   Upload,
   Undo2,
   X,
 } from 'lucide-react'
 import * as THREE from 'three'
-import { StudioScene, type SceneItem, type ViewMode } from './scene/StudioScene'
+import { StudioScene, type PathTraceStatus, type SceneItem, type ViewMode } from './scene/StudioScene'
 
 const FINISHES = [
   { id: 'oat', label: '燕麦织物', color: '#b8a58f' },
@@ -43,10 +44,13 @@ const INITIAL_ITEMS: SceneItem[] = [
     name: '云栖三人沙发',
     category: '软体家具',
     kind: 'sofa',
+    modelUrl: '/assets/models/glam-velvet-sofa/GlamVelvetSofa.glb',
+    targetSize: 2.55,
+    fit: 'width',
     position: [-0.55, 0, -0.2],
     rotation: 0,
     finish: 'oat',
-    dimensions: '268 × 98 × 78 cm',
+    dimensions: '218 × 96 × 82 cm',
   },
   {
     id: 'chair-a',
@@ -145,7 +149,9 @@ function App() {
   const [quality, setQuality] = useState<'preview' | 'photo'>('photo')
   const [exposure, setExposure] = useState(0.82)
   const [hour, setHour] = useState(15.6)
-    const [importMode, setImportMode] = useState<ImportMode>('replace')
+  const [importMode, setImportMode] = useState<ImportMode>('replace')
+  const [pathTracing, setPathTracing] = useState(false)
+  const [pathTraceStatus, setPathTraceStatus] = useState<PathTraceStatus>({ stage: '准备物理场景', samples: 0, maxSamples: 64, progress: 0 })
   const [status, setStatus] = useState('方案已保存')
   const [sceneReady, setSceneReady] = useState(false)
   const [mobilePanel, setMobilePanel] = useState<'none' | 'assets' | 'inspector'>('none')
@@ -234,6 +240,16 @@ function App() {
   }
 
   const modeLabel = viewMode === 'design' ? '设计视角' : viewMode === 'walk' ? '空间漫游' : '照片构图'
+  const switchView = (mode: ViewMode) => {
+    setPathTracing(false)
+    setViewMode(mode)
+  }
+  const startPathTracing = () => {
+    setViewMode('photo')
+    setPathTraceStatus({ stage: '准备物理场景', samples: 0, maxSamples: 64, progress: 0 })
+    setPathTracing(true)
+    setStatus('正在生成路径追踪渲染图')
+  }
 
   return (
     <div className={`app-shell mode-${viewMode}`} data-testid="app-shell">
@@ -299,6 +315,7 @@ function App() {
         <section className="canvas-panel" id="walk-lock-surface">
           <Canvas
             shadows
+            frameloop={pathTracing ? 'never' : 'always'}
             dpr={viewMode === 'photo' ? [1.25, 2] : [1, 1.5]}
             gl={{ antialias: true, alpha: false, preserveDrawingBuffer: true, powerPreference: 'high-performance', toneMapping: THREE.ACESFilmicToneMapping }}
             camera={{ position: [4.05, 1.82, 6.05], fov: 36, near: 0.04, far: 90 }}
@@ -318,6 +335,8 @@ function App() {
               exposure={exposure}
               hour={hour}
               contactKey={importKey}
+              pathTracing={pathTracing}
+              onPathTraceStatus={setPathTraceStatus}
               onReady={() => setSceneReady(true)}
             />
           </Canvas>
@@ -325,16 +344,21 @@ function App() {
           <div className="canvas-top">
             <div className="canvas-heading">
               <div className="view-switcher" role="group" aria-label="视图模式">
-                <button data-testid="view-design" className={viewMode === 'design' ? 'is-active' : ''} onClick={() => setViewMode('design')}><Rotate3D size={15} />设计</button>
-                <button data-testid="view-walk" className={viewMode === 'walk' ? 'is-active' : ''} onClick={() => setViewMode('walk')}><Footprints size={15} />漫游</button>
-                <button data-testid="view-photo" className={viewMode === 'photo' ? 'is-active' : ''} onClick={() => setViewMode('photo')}><Camera size={15} />照片</button>
+                <button data-testid="view-design" className={viewMode === 'design' && !pathTracing ? 'is-active' : ''} onClick={() => switchView('design')}><Rotate3D size={15} />设计</button>
+                <button data-testid="view-walk" className={viewMode === 'walk' && !pathTracing ? 'is-active' : ''} onClick={() => switchView('walk')}><Footprints size={15} />漫游</button>
+                <button data-testid="view-photo" className={viewMode === 'photo' && !pathTracing ? 'is-active' : ''} onClick={() => switchView('photo')}><Camera size={15} />照片</button>
               </div>
               <div className="canvas-title-block">
                 <h2>客厅 · 光影方案 C</h2>
                 <p>自然光研究 / 南向落地窗 / 46.8 m²</p>
               </div>
             </div>
-            <div className="render-badge"><span className="live-dot" />{quality === 'photo' ? 'PBR · HDRI · AO' : '流畅预览'}</div>
+            <div className="canvas-top-actions">
+              {viewMode === 'photo' && !pathTracing && (
+                <button className="path-trace-action" onClick={startPathTracing} data-testid="start-path-trace"><Sparkles size={15} />路径追踪</button>
+              )}
+              <div className="render-badge"><span className="live-dot" />{quality === 'photo' ? 'PBR · HDRI · AO' : '流畅预览'}</div>
+            </div>
           </div>
 
           {viewMode === 'walk' && (
@@ -366,6 +390,23 @@ function App() {
             <span><span className="mono">x</span> 0.0 · <span className="mono">y</span> 0.0</span>
             <span>点击家具选择 · 拖拽旋转视角</span>
           </div>
+
+          {pathTracing && (
+            <div className="path-trace-overlay" data-testid="path-trace-overlay">
+              <div className="path-trace-card" data-testid="path-trace-card">
+                <div className="path-trace-copy">
+                  <span className="path-trace-kicker"><Sparkles size={13} />GPU PATH TRACING</span>
+                  <h3>{pathTraceStatus.stage}</h3>
+                  <p>{pathTraceStatus.error ?? `${pathTraceStatus.samples} / ${pathTraceStatus.maxSamples} 累计采样`}</p>
+                </div>
+                <div className="path-trace-progress"><span style={{ width: `${pathTraceStatus.progress}%` }} /></div>
+                <div className="path-trace-actions">
+                  <button className="secondary-button" onClick={() => { setPathTracing(false); setStatus('已退出路径追踪') }}>停止并返回</button>
+                  <button className="primary-button" disabled={pathTraceStatus.samples < 1} onClick={() => { window.dispatchEvent(new Event('ai-home-capture')); setStatus('路径追踪图已导出') }}>保存渲染图</button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {(active || !sceneReady) && (
             <div className="loading-overlay" data-testid="scene-loading">

@@ -153,6 +153,59 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
 .view-switcher { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid rgba(199,195,186,.92); border-radius: 8px; background: #fffefa; }
 .view-switcher button { height: 29px; padding: 0 10px; border: 0; border-radius: 5px; background: transparent; color: #5e5a53; font-size: 13px; display: flex; align-items: center; gap: 5px; cursor: pointer; }
 .view-switcher button.is-active { background: #181714; color: #fffefa; }
+.path-trace-action {
+  width: max-content;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+  border: 1px solid #1d1c19;
+  border-radius: 7px;
+  background: #1d1c19;
+  color: #fffefa;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.path-trace-action:hover { background: #312e29; }
+.path-trace-overlay {
+  position: absolute;
+  z-index: 5;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 16px 52px;
+  background: linear-gradient(to top, rgba(24,22,19,.34), transparent 42%);
+  pointer-events: none;
+}
+.path-trace-card {
+  width: min(460px, 100%);
+  padding: 15px 16px 14px;
+  border-radius: 10px;
+  background: #1c1b18;
+  color: #fffefa;
+  pointer-events: auto;
+}
+.path-trace-kicker {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #a9bdd5;
+  font-size: 11px;
+  letter-spacing: .055em;
+}
+.path-trace-copy h3 { margin: 7px 0 3px; font-size: 17px; font-weight: 600; }
+.path-trace-copy p { margin: 0; color: #bab5ad; font-size: 12px; }
+.path-trace-progress { height: 3px; margin: 13px 0 12px; overflow: hidden; border-radius: 999px; background: #373530; }
+.path-trace-progress span { display: block; height: 100%; border-radius: inherit; background: #8fb8e5; transition: width .25s ease; }
+.path-trace-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.path-trace-actions .secondary-button { border-color: #48453f; background: #292722; color: #f2eee6; }
+.path-trace-actions .secondary-button:hover { background: #38352f; }
+.path-trace-actions .primary-button { border-color: #f0ece4; background: #f0ece4; color: #1a1916; }
+.path-trace-actions .primary-button:disabled { opacity: .42; cursor: default; }
+.canvas-top-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
 .render-badge { height: 28px; display: flex; align-items: center; gap: 7px; padding: 0 10px; border: 1px solid rgba(199,195,186,.92); border-radius: 7px; background: #fffefa; color: #57534c; font-size: 13px; }
 .live-dot { width: 6px; height: 6px; border-radius: 50%; background: #4c7a57; }
 
@@ -225,6 +278,9 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
   .canvas-top { top: 9px; left: 9px; right: 9px; }
   .view-switcher button { padding: 0 8px; }
   .view-switcher button svg { display: none; }
+  .path-trace-action { height: 30px; padding: 0 9px; font-size: 0; }
+  .path-trace-action svg { display: block; }
+  .path-trace-overlay { padding: 0 9px 76px; }
   .render-badge { display: none; }
   .canvas-bottom { left: 9px; right: 9px; bottom: 38px; gap: 5px; }
   .light-control, .exposure-control, .quality-button { height: 32px; padding: 0 8px; }

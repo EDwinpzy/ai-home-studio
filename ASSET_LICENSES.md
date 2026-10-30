@@ -39,6 +39,16 @@
 - 本地文件：`public/assets/models/sheen-chair/SheenChair.glb`
 - 原始说明保存在：`public/assets/models/sheen-chair/README.md`
 
+## Khronos glTF Sample Assets · GlamVelvetSofa
+
+- 站点：https://github.com/KhronosGroup/glTF-Sample-Assets
+- 模型：GlamVelvetSofa
+- 版权：© 2021, Wayfair, LLC
+- 作者：Eric Chadwick
+- 许可证：Creative Commons Attribution 4.0 International
+- 本地文件：`public/assets/models/glam-velvet-sofa/GlamVelvetSofa.glb`
+- 原始说明：`public/assets/models/glam-velvet-sofa/README.md`
+
 ## 运行时依赖
 
 主要运行时库的许可证：

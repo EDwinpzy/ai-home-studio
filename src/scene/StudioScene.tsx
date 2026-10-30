@@ -5,7 +5,6 @@ import {
   Environment,
   MeshReflectorMaterial,
   OrbitControls,
-  RoundedBox,
   SoftShadows,
   useCursor,
   useGLTF,
@@ -22,8 +21,19 @@ import {
   Vignette,
 } from '@react-three/postprocessing'
 import * as THREE from 'three'
+import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js'
+import { WebGLPathTracer } from 'three-gpu-pathtracer'
 
 export type ViewMode = 'design' | 'walk' | 'photo'
+
+export interface PathTraceStatus {
+  stage: string
+  samples: number
+  maxSamples: number
+  progress: number
+  complete?: boolean
+  error?: string
+}
 
 export interface SceneItem {
   id: string
@@ -41,18 +51,20 @@ export interface SceneItem {
 }
 
 const FINISH_COLORS: Record<string, string> = {
-  oat: '#b8a58f',
-  moss: '#777b62',
-  clay: '#8b5c49',
-  graphite: '#484844',
+  oat: '#9d8b74',
+  moss: '#68705b',
+  clay: '#7f5140',
+  graphite: '#3e3e39',
 }
 
 const MODELS = {
+  sofa: '/assets/models/glam-velvet-sofa/GlamVelvetSofa.glb',
   coffeeTable: '/assets/models/modern_coffee_table_01/modern_coffee_table_01_1k.gltf',
   plant: '/assets/models/potted_plant_02/potted_plant_02_1k.gltf',
   sheenChair: '/assets/models/sheen-chair/SheenChair.glb',
 }
 
+useGLTF.preload(MODELS.sofa)
 useGLTF.preload(MODELS.coffeeTable)
 useGLTF.preload(MODELS.plant)
 useGLTF.preload(MODELS.sheenChair)
@@ -66,6 +78,8 @@ interface StudioSceneProps {
   exposure: number
   hour: number
   contactKey: string
+  pathTracing?: boolean
+  onPathTraceStatus?: (status: PathTraceStatus) => void
   onReady: () => void
 }
 
@@ -211,56 +225,6 @@ function FabricMaterial({ color, repeat = [2.4, 2.4] }: { color: string; repeat?
   )
 }
 
-function Sofa({ color }: { color: string }) {
-  const legMaterial = <meshStandardMaterial color="#171614" metalness={0.58} roughness={0.32} />
-  return (
-    <group>
-      <RoundedBox args={[2.72, 0.34, 1.04]} radius={0.1} smoothness={7} position={[0, 0.35, 0]} castShadow receiveShadow>
-        <FabricMaterial color={color} />
-      </RoundedBox>
-      {[-0.78, 0, 0.78].map((x, index) => (
-        <RoundedBox key={`seat-${x}`} args={[0.76, 0.21, 0.84]} radius={0.09} smoothness={8} position={[x, 0.58, 0.09]} rotation={[0.01, index === 1 ? 0.012 : 0, 0]} castShadow receiveShadow>
-          <FabricMaterial color={color} repeat={[1.15, 1.2]} />
-        </RoundedBox>
-      ))}
-      {[-0.38, 0.38].map((x) => (
-        <mesh key={`seam-${x}`} position={[x, 0.684, 0.515]}>
-          <boxGeometry args={[0.012, 0.012, 0.75]} />
-          <meshStandardMaterial color="#756654" roughness={0.92} />
-        </mesh>
-      ))}
-      <RoundedBox args={[2.45, 0.72, 0.27]} radius={0.11} smoothness={7} position={[0, 0.86, -0.39]} rotation={[-0.06, 0, 0]} castShadow receiveShadow>
-        <FabricMaterial color={color} repeat={[2.2, 1.8]} />
-      </RoundedBox>
-      {[-0.82, 0, 0.82].map((x, index) => (
-        <RoundedBox key={x} args={[0.72, 0.64, 0.22]} radius={0.1} smoothness={7} position={[x, 0.9, -0.28 - index * 0.005]} rotation={[-0.11, index === 0 ? 0.03 : index === 2 ? -0.03 : 0, 0]} castShadow receiveShadow>
-          <FabricMaterial color={color} repeat={[1.25, 1.65]} />
-        </RoundedBox>
-      ))}
-      {[-1.21, 1.21].map((x) => (
-        <RoundedBox key={x} args={[0.3, 0.57, 1.02]} radius={0.12} smoothness={7} position={[x, 0.64, 0]} castShadow receiveShadow>
-          <FabricMaterial color={color} repeat={[0.8, 1.4]} />
-        </RoundedBox>
-      ))}
-      {[[-1.08, 0.83], [1.08, 0.83]].map(([x, z]) => (
-        <mesh key={`${x}-${z}`} position={[x, 0.15, z]} castShadow>
-          <cylinderGeometry args={[0.035, 0.026, 0.3, 20]} />
-          {legMaterial}
-        </mesh>
-      ))}
-      <RoundedBox args={[0.52, 0.5, 0.15]} radius={0.08} smoothness={6} position={[-0.78, 0.82, 0.01]} rotation={[0.08, 0.38, -0.11]} castShadow receiveShadow>
-        <meshPhysicalMaterial color="#5b6250" roughness={0.96} sheen={0.6} sheenColor="#b6b59b" />
-      </RoundedBox>
-      <RoundedBox args={[0.48, 0.46, 0.14]} radius={0.08} smoothness={6} position={[0.7, 0.79, 0.02]} rotation={[0.03, -0.28, 0.08]} castShadow receiveShadow>
-        <meshPhysicalMaterial color="#c5b6a6" roughness={0.95} sheen={0.5} sheenColor="#f3e4d2" />
-      </RoundedBox>
-      <RoundedBox args={[1.08, 0.07, 0.52]} radius={0.035} smoothness={5} position={[-0.3, 0.72, 0.46]} rotation={[-0.14, 0.1, 0.05]} castShadow receiveShadow>
-        <meshPhysicalMaterial color="#6f7562" roughness={0.9} sheen={0.45} sheenColor="#d0ceb7" />
-      </RoundedBox>
-    </group>
-  )
-}
-
 function Pendant({ quality }: { quality: 'preview' | 'photo' }) {
   return (
     <group position={[0, -0.02, 0]}>
@@ -285,6 +249,83 @@ function Pendant({ quality }: { quality: 'preview' | 'photo' }) {
   )
 }
 
+function SlattedWoodWall() {
+  const [mapSource, normalSource, roughnessSource] = useTexture([
+    '/assets/textures/woodfloor/color.jpg',
+    '/assets/textures/woodfloor/normal.jpg',
+    '/assets/textures/woodfloor/roughness.jpg',
+  ])
+  const material = useMemo(() => {
+    const textures = [mapSource.clone(), normalSource.clone(), roughnessSource.clone()]
+    for (const texture of textures) {
+      texture.wrapS = texture.wrapT = THREE.RepeatWrapping
+      texture.repeat.set(0.22, 2.8)
+      texture.anisotropy = 8
+      texture.needsUpdate = true
+    }
+    textures[0].colorSpace = THREE.SRGBColorSpace
+    return new THREE.MeshPhysicalMaterial({
+      map: textures[0],
+      normalMap: textures[1],
+      normalScale: new THREE.Vector2(0.42, 0.42),
+      roughnessMap: textures[2],
+      color: '#8f7457',
+      roughness: 0.58,
+      metalness: 0,
+      clearcoat: 0.12,
+      clearcoatRoughness: 0.48,
+      envMapIntensity: 0.72,
+    })
+  }, [mapSource, normalSource, roughnessSource])
+
+  return (
+    <group position={[-4.57, 0, -1.15]}>
+      {Array.from({ length: 28 }, (_, index) => (
+        <mesh key={index} position={[0.02, 1.32, -1.35 + index * 0.1]} material={material} castShadow receiveShadow>
+          <boxGeometry args={[0.1, 2.64, 0.035]} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+function CurtainMaterial() {
+  const [mapSource, normalSource, roughnessSource] = useTexture([
+    '/assets/textures/fabric/color.jpg',
+    '/assets/textures/fabric/normal.jpg',
+    '/assets/textures/fabric/roughness.jpg',
+  ])
+  const [map, normalMap, roughnessMap] = useMemo(() => {
+    const textures = [mapSource.clone(), normalSource.clone(), roughnessSource.clone()]
+    for (const texture of textures) {
+      texture.wrapS = texture.wrapT = THREE.RepeatWrapping
+      texture.repeat.set(1.5, 2.4)
+      texture.anisotropy = 8
+      texture.needsUpdate = true
+    }
+    textures[0].colorSpace = THREE.SRGBColorSpace
+    return textures
+  }, [mapSource, normalSource, roughnessSource])
+  return (
+    <meshPhysicalMaterial
+      map={map}
+      normalMap={normalMap}
+      normalScale={new THREE.Vector2(0.22, 0.22)}
+      roughnessMap={roughnessMap}
+      color="#e8e0d3"
+      roughness={0.94}
+      metalness={0}
+      transparent
+      opacity={0.72}
+      side={THREE.DoubleSide}
+      depthWrite={false}
+      sheen={0.45}
+      sheenColor="#fff7e9"
+      envMapIntensity={0.62}
+    />
+  )
+}
+
 function WavyCurtain({ x, flip = false }: { x: number; flip?: boolean }) {
   const geometry = useMemo(() => {
     const width = 1.12
@@ -292,6 +333,7 @@ function WavyCurtain({ x, flip = false }: { x: number; flip?: boolean }) {
     const segmentsX = 28
     const segmentsY = 2
     const positions: number[] = []
+    const uvs: number[] = []
     const indices: number[] = []
     for (let y = 0; y <= segmentsY; y += 1) {
       for (let ix = 0; ix <= segmentsX; ix += 1) {
@@ -299,6 +341,7 @@ function WavyCurtain({ x, flip = false }: { x: number; flip?: boolean }) {
         const px = (u - 0.5) * width
         const wave = Math.sin(u * Math.PI * 7) * 0.055 + Math.sin(u * Math.PI * 13) * 0.018
         positions.push(px, y * height, wave)
+        uvs.push(u, y / segmentsY)
       }
     }
     for (let y = 0; y < segmentsY; y += 1) {
@@ -312,6 +355,7 @@ function WavyCurtain({ x, flip = false }: { x: number; flip?: boolean }) {
     }
     const g = new THREE.BufferGeometry()
     g.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
     g.setIndex(indices)
     g.computeVertexNormals()
     return g
@@ -319,7 +363,7 @@ function WavyCurtain({ x, flip = false }: { x: number; flip?: boolean }) {
 
   return (
     <mesh geometry={geometry} position={[x, 0.12, -3.62]} rotation={[0, flip ? Math.PI : 0, 0]} castShadow receiveShadow>
-      <meshPhysicalMaterial color="#ded7ca" roughness={0.92} transparent opacity={0.58} side={THREE.DoubleSide} depthWrite={false} sheen={0.35} sheenColor="#fff5e8" />
+      <CurtainMaterial />
     </mesh>
   )
 }
@@ -437,12 +481,12 @@ function BalconyExterior() {
   )
 }
 
-function RoomShell({ quality }: { quality: 'preview' | 'photo' }) {
+function RoomShell({ quality, pathTracing }: { quality: 'preview' | 'photo'; pathTracing: boolean }) {
   return (
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
         <planeGeometry args={[10.2, 9.2]} />
-        <ReflectiveFloor quality={quality} />
+        {pathTracing ? <FloorMaterial /> : <ReflectiveFloor quality={quality} />}
       </mesh>
 
       <mesh position={[-4.7, 1.56, -0.1]} receiveShadow castShadow>
@@ -467,38 +511,12 @@ function RoomShell({ quality }: { quality: 'preview' | 'photo' }) {
         <meshStandardMaterial color="#b7a78f" roughness={0.72} />
       </mesh>
 
-      <group position={[-4.57, 0, -1.15]}>
-        {Array.from({ length: 28 }, (_, index) => (
-          <mesh key={index} position={[0.02, 1.32, -1.35 + index * 0.1]} castShadow receiveShadow>
-            <boxGeometry args={[0.1, 2.64, 0.035]} />
-            <meshPhysicalMaterial color={index % 3 === 0 ? '#8f765a' : '#a08567'} roughness={0.58} clearcoat={0.12} clearcoatRoughness={0.48} />
-          </mesh>
-        ))}
-      </group>
+      <SlattedWoodWall />
 
       <mesh position={[0.12, 2.99, -0.2]}>
         <boxGeometry args={[8.6, 0.035, 7.45]} />
         <meshStandardMaterial color="#f4efe7" emissive="#fff4df" emissiveIntensity={0.15} roughness={0.86} />
       </mesh>
-
-      <group position={[-1.05, 1.68, -3.91]}>
-        <mesh position={[0, 0, 0.02]} castShadow>
-          <boxGeometry args={[1.64, 1.08, 0.05]} />
-          <meshStandardMaterial color="#1e1b18" roughness={0.38} metalness={0.15} />
-        </mesh>
-        <mesh position={[0, 0, 0.055]}>
-          <planeGeometry args={[1.48, 0.92]} />
-          <meshStandardMaterial color="#8a745f" roughness={0.88} />
-        </mesh>
-        <mesh position={[-0.24, 0.03, 0.065]}>
-          <circleGeometry args={[0.31, 48]} />
-          <meshStandardMaterial color="#c49b70" roughness={0.94} />
-        </mesh>
-        <mesh position={[0.3, -0.12, 0.068]} rotation={[0, 0, -0.35]}>
-          <planeGeometry args={[0.52, 0.22]} />
-          <meshStandardMaterial color="#4d5146" roughness={0.92} />
-        </mesh>
-      </group>
 
       <group position={[3.15, 0, -2.4]}>
         <mesh position={[0, 0.48, 0]} castShadow receiveShadow>
@@ -529,11 +547,11 @@ function Rug() {
     <group position={[-0.3, 0.028, 0.72]} rotation={[-Math.PI / 2, 0, 0]}>
       <mesh receiveShadow castShadow>
         <planeGeometry args={[5.1, 3.9, 48, 48]} />
-        <FabricMaterial color="#a89c8a" repeat={[3.2, 2.5]} />
+        <FabricMaterial color="#8d8171" repeat={[3.2, 2.5]} />
       </mesh>
       <mesh position={[0, 0, 0.005]}>
         <planeGeometry args={[4.75, 3.55]} />
-        <meshPhysicalMaterial color="#b7ab98" roughness={0.98} sheen={0.7} sheenColor="#e0d4c2" transparent opacity={0.55} />
+        <meshPhysicalMaterial color="#9c9181" roughness={0.98} sheen={0.5} sheenColor="#d6c8b6" transparent opacity={0.38} />
       </mesh>
     </group>
   )
@@ -555,9 +573,10 @@ function GltfObject({ url, targetSize = 1.4, fit = 'width', tint }: { url: strin
           if (/fabric/i.test(copy.name)) {
             copy.color.set(tint)
             if (copy instanceof THREE.MeshPhysicalMaterial) {
-              copy.sheenColor.set(new THREE.Color(tint).lerp(new THREE.Color("#f6e8d8"), 0.7))
-              copy.sheen = 0.72
-              copy.sheenRoughness = 0.68
+              copy.roughness = Math.max(copy.roughness, 0.8)
+              copy.sheenColor.set(new THREE.Color(tint).lerp(new THREE.Color("#f1e4d2"), 0.46))
+              copy.sheen = 0.48
+              copy.sheenRoughness = 0.78
             }
           }
           copy.needsUpdate = true
@@ -606,7 +625,9 @@ function SceneObject({ item, selected, onSelect, setHovered, quality }: {
         }}
         onPointerOut={() => setHovered(null)}
       >
-        {item.kind === 'sofa' && <Sofa color={tint} />}
+        {item.kind === 'sofa' && item.modelUrl && (
+          <GltfObject url={item.modelUrl} targetSize={item.targetSize} fit={item.fit} tint={tint} />
+        )}
         {item.kind === 'pendant' && <Pendant quality={quality} />}
         {item.kind === 'model' && item.modelUrl && (
           <GltfObject url={item.modelUrl} targetSize={item.targetSize} fit={item.fit} tint={tint} />
@@ -759,9 +780,9 @@ function CameraRig({ viewMode }: { viewMode: ViewMode }) {
       camera.lookAt(-0.2, 1.42, -0.4)
       camera.fov = 58
     } else {
-      camera.position.set(3.35, 1.58, 4.32)
-      camera.lookAt(-0.2, 1.15, -0.1)
-      camera.fov = 29
+      camera.position.set(3.85, 1.72, 4.95)
+      camera.lookAt(-0.15, 1.08, -0.28)
+      camera.fov = 32
     }
     camera.updateProjectionMatrix()
   }, [perspectiveCamera, viewMode])
@@ -799,7 +820,112 @@ function CaptureBridge() {
   return null
 }
 
-function SceneContent({ items, selectedId, onSelect, viewMode, quality, exposure, hour, contactKey, onReady }: StudioSceneProps) {
+function PathTraceRunner({ enabled, exposure, onStatus }: {
+  enabled: boolean
+  exposure: number
+  onStatus?: (status: PathTraceStatus) => void
+}) {
+  const { gl, scene, camera } = useThree()
+  const statusRef = useRef(onStatus)
+  statusRef.current = onStatus
+
+  useEffect(() => {
+    if (!enabled) return
+    let cancelled = false
+    let frame = 0
+    let tracer: WebGLPathTracer | null = null
+    let environment: THREE.Texture | null = null
+    let lastReport = 0
+    const maxSamples = 64
+
+    const report = (stage: string, samples: number, complete = false) => {
+      statusRef.current?.({
+        stage,
+        samples,
+        maxSamples,
+        progress: Math.min(100, Math.round((samples / maxSamples) * 100)),
+        complete,
+      })
+    }
+
+    report('准备物理场景', 0)
+    const traceScene = scene.clone(true)
+    const traceCamera = camera.clone()
+    traceScene.background = null
+    traceScene.environment = null
+
+    const start = async () => {
+      const hdr = await new HDRLoader().setDataType(THREE.FloatType).loadAsync('/assets/hdri/venice_sunset_1k.hdr')
+      if (cancelled) {
+        hdr.dispose()
+        return
+      }
+      environment = hdr
+      hdr.mapping = THREE.EquirectangularReflectionMapping
+      traceScene.background = hdr
+      traceScene.backgroundRotation.set(0, -Math.PI / 2, 0)
+      traceScene.backgroundIntensity = 0.82
+      traceScene.backgroundBlurriness = 0.04
+      traceScene.environment = hdr
+      traceScene.environmentRotation.set(0, -Math.PI / 2, 0)
+      traceScene.environmentIntensity = 0.48
+      traceScene.updateMatrixWorld(true)
+      traceCamera.updateMatrixWorld(true)
+
+      gl.toneMapping = THREE.ACESFilmicToneMapping
+      gl.toneMappingExposure = exposure
+      tracer = new WebGLPathTracer(gl)
+      tracer.renderScale = 0.72
+      tracer.lowResScale = 0.25
+      tracer.dynamicLowRes = true
+      tracer.bounces = 6
+      tracer.filterGlossyFactor = 0.5
+      tracer.renderDelay = 0
+      tracer.minSamples = 1
+      tracer.renderToCanvas = true
+
+      report('构建光线追踪加速结构', 0)
+      tracer.setScene(traceScene, traceCamera)
+      if (cancelled) return
+
+      const render = () => {
+        if (cancelled || !tracer) return
+        tracer.renderSample()
+        const samples = Math.min(Math.floor(tracer.samples), maxSamples)
+        const now = performance.now()
+        if (samples >= maxSamples || now - lastReport > 220) {
+          lastReport = now
+          report(samples >= maxSamples ? '路径追踪完成' : '路径追踪采样中', samples, samples >= maxSamples)
+        }
+        if (samples < maxSamples) frame = requestAnimationFrame(render)
+      }
+      frame = requestAnimationFrame(render)
+    }
+
+    start().catch((error: unknown) => {
+      if (cancelled) return
+      const message = error instanceof Error ? error.message : String(error)
+      statusRef.current?.({
+        stage: '路径追踪不可用',
+        samples: 0,
+        maxSamples,
+        progress: 0,
+        error: message,
+      })
+    })
+
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(frame)
+      tracer?.dispose()
+      environment?.dispose()
+    }
+  }, [camera, enabled, exposure, gl, scene])
+
+  return null
+}
+
+function SceneContent({ items, selectedId, onSelect, viewMode, quality, exposure, hour, contactKey, pathTracing = false, onPathTraceStatus, onReady }: StudioSceneProps) {
   const { gl } = useThree()
   const renderQuality = viewMode === 'photo' ? quality : 'preview'
   const [hovered, setHovered] = useState<string | null>(null)
@@ -809,28 +935,32 @@ function SceneContent({ items, selectedId, onSelect, viewMode, quality, exposure
 
   return (
     <Selection>
-      <SoftShadows size={renderQuality === 'photo' ? 22 : 12} samples={renderQuality === 'photo' ? 14 : 8} focus={0.55} />
-      <Environment files="/assets/hdri/venice_sunset_1k.hdr" background backgroundBlurriness={0.18} backgroundIntensity={0.76} backgroundRotation={[0.02, Math.PI * 0.42, 0]} environmentIntensity={quality === 'photo' ? 0.55 : 0.42} />
+      {!pathTracing && <SoftShadows size={renderQuality === 'photo' ? 22 : 12} samples={renderQuality === 'photo' ? 14 : 8} focus={0.55} />}
+      {!pathTracing && <Environment files="/assets/hdri/venice_sunset_1k.hdr" background backgroundBlurriness={0.04} backgroundIntensity={0.82} backgroundRotation={[0, -Math.PI / 2, 0]} environmentIntensity={quality === 'photo' ? 0.55 : 0.42} />}
       <Lighting hour={hour} quality={renderQuality} />
-      <RoomShell quality={renderQuality} />
+      <RoomShell quality={renderQuality} pathTracing={pathTracing} />
+      {pathTracing && <rectAreaLight position={[0.35, 1.68, -3.55]} rotation={[0, Math.PI, 0]} width={6.2} height={2.35} intensity={2.6} color="#e4efff" />}
       <Rug />
       <TableVignette />
       <FloorLamp quality={quality} />
       {items.map((item) => (
         <SceneObject key={item.id} item={item} selected={viewMode !== 'photo' && selectedId === item.id} onSelect={onSelect} setHovered={setHovered} quality={renderQuality} />
       ))}
-      <ContactShadows key={contactKey} position={[0, 0.012, 0.4]} opacity={renderQuality === 'photo' ? 0.62 : 0.42} scale={10.5} blur={renderQuality === 'photo' ? 2.6 : 1.8} far={4.5} resolution={renderQuality === 'photo' ? 1024 : 512} color="#241a13" frames={1} />
+      {!pathTracing && <ContactShadows key={contactKey} position={[0, 0.012, 0.4]} opacity={renderQuality === 'photo' ? 0.62 : 0.42} scale={10.5} blur={renderQuality === 'photo' ? 2.6 : 1.8} far={4.5} resolution={renderQuality === 'photo' ? 1024 : 512} color="#241a13" frames={1} />}
       <CameraRig viewMode={viewMode} />
       <WalkMovement enabled={viewMode === 'walk'} />
-      {viewMode !== 'walk' && <OrbitControls makeDefault target={viewMode === 'photo' ? [-0.2, 1.1, -0.1] : [-0.15, 1.02, 0]} enablePan={false} minDistance={2.3} maxDistance={8.5} minPolarAngle={0.62} maxPolarAngle={1.48} />}
+      {viewMode !== 'walk' && <OrbitControls makeDefault enabled={!pathTracing} target={viewMode === 'photo' ? [-0.2, 1.1, -0.1] : [-0.15, 1.02, 0]} enablePan={false} minDistance={2.3} maxDistance={8.5} minPolarAngle={0.62} maxPolarAngle={1.48} />}
       <WalkLook enabled={viewMode === 'walk'} />
-      <EffectComposer multisampling={0} enableNormalPass={false} autoClear={false}>
-        <N8AO halfRes={false} quality={renderQuality === 'photo' ? 'high' : 'performance'} aoRadius={1.35} aoSamples={16} denoiseSamples={8} denoiseRadius={12} distanceFalloff={1.5} intensity={renderQuality === 'photo' ? 2.5 : 1.6} color="#2d241d" />
-        <Outline blur visibleEdgeColor="#1d5fbf" hiddenEdgeColor="#1d5fbf" edgeStrength={4.5} width={1200} />
-        <Bloom intensity={renderQuality === 'photo' ? 0.18 : 0.08} luminanceThreshold={1.5} luminanceSmoothing={0.2} mipmapBlur />
-        <Vignette eskil={false} offset={0.14} darkness={renderQuality === 'photo' ? 0.31 : 0.2} />
-        <SMAA />
-      </EffectComposer>
+      {!pathTracing && (
+        <EffectComposer multisampling={0} enableNormalPass={false} autoClear={false}>
+          <N8AO halfRes={false} quality={renderQuality === 'photo' ? 'high' : 'performance'} aoRadius={1.35} aoSamples={16} denoiseSamples={8} denoiseRadius={12} distanceFalloff={1.5} intensity={renderQuality === 'photo' ? 2.5 : 1.6} color="#2d241d" />
+          <Outline blur visibleEdgeColor="#1d5fbf" hiddenEdgeColor="#1d5fbf" edgeStrength={4.5} width={1200} />
+          <Bloom intensity={renderQuality === 'photo' ? 0.18 : 0.08} luminanceThreshold={1.5} luminanceSmoothing={0.2} mipmapBlur />
+          <Vignette eskil={false} offset={0.14} darkness={renderQuality === 'photo' ? 0.31 : 0.2} />
+          <SMAA />
+        </EffectComposer>
+      )}
+      <PathTraceRunner enabled={pathTracing} exposure={exposure} onStatus={onPathTraceStatus} />
       <CaptureBridge />
       <SceneReady onReady={onReady} />
     </Selection>
