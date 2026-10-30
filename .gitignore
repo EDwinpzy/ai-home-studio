@@ -24,3 +24,7 @@ coverage/
 # Local validation artifacts
 artifacts/
 tmp/
+
+# Local tooling
+.taste-skill/
+work/
