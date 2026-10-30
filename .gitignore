@@ -1,0 +1,26 @@
+# Local
+.DS_Store
+Thumbs.db
+*.log
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build outputs
+target/
+node_modules/
+dist/
+build/
+coverage/
+
+# Local validation artifacts
+artifacts/
+tmp/
